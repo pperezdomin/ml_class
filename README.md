@@ -1,3 +1,3 @@
 # ml_class
 
-Prueba2
+El objetivo de este repositorio es crear un modelo de predicción.
