@@ -2,7 +2,9 @@
 title: "Heart attack"
 author: "Paulo"
 date: "2023-02-08"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -118,10 +120,53 @@ boxplot(edad)
 ```
 
 
+## Boxplot numericos
+```{r fig.height=6, fig.width=4}
+par(mfrow = c(3,2))
+for (i in c(1:6)){
+  boxplot(data_num[,i], main = colnames(data_num[i]),
+          ylim = c(0,400))
+}
+```
+
+Para saber si una categórica es significativa: chi cuadrado
+Para concatenar caracteres en R: paste0
+ 
+## Barplot categoricos
+```{r}
+pdf(file = '/Users/pauloperezdominguez/Documents/R/Machine_Learning/ml_class/barplot_fac.pdf')
+par(mfrow = c(3,2))
+for (i in c(1:6)){
+  pvalor <- chisq.test(table(data_fac[i]))$p.value
+  barplot(prop.table(table(as.numeric(data_fac[,i]))), main = paste0(colnames(data_fac[i]),'-',pvalor),
+          horiz = TRUE, col = (ifelse (pvalor < 10^(-15),'red','blue')))
+}
+dev.off()
+```
+
+## Centrar y Normalizar
+Para comparar variables numéricas hay que centrar (restar la media) y normalizar(dividir por desviación típica)
+```{r}
+centrar_norm <- function(var_num){
+  var_num <- (var_num - mean(var_num, na.rm = T))/sd(var_num, na.rm= T)
+  return(var_num)
+}
+edad <- data_num$age
+data_num_cent_norm <- list()
 
 
+for (i in c(1:6)){
+  nombre <- paste0(colnames(data_num[i]),'-','estandar')
+  data_num[,nombre] <- centrar_norm(data_num[,i])
+}
 
-
+par(mfrow = c(3,2))
+for (i in c(7:12)){
+  hist(data_num[,i],col = '#191970',
+       main = colnames(data_num[i]),
+       xlab = colnames(data_num[i-6]))
+}
+```
 
 
 
