@@ -1,0 +1,128 @@
+---
+title: "Heart attack"
+author: "Paulo"
+date: "2023-02-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading data
+
+```{r loading}
+library(tidyverse)
+data <- read.csv2('heart_mod.csv',sep='p', dec = ',')
+summary(data)
+which(data$age>100)
+data$age[c(158,243,296)] <- data$age[c(158,243,296)]/10
+```
+
+Los valores que superan los 100 años, tomando en cuenta que el tercer cuantil es de 61,
+parecen typos, por lo que les quitamos un cero.
+
+Otra opción es sort los valores y obtener el tail, y ver los que sobresalen.
+
+
+## Renaming
+```{r renaming}
+sapply(data,class)
+data$sex <- as.factor(data$sex)
+levels(data$sex) <- c('Female','Male')
+table(data$sex)
+
+data$cp <- as.factor(data$cp)
+levels(data$cp) <- c('Asymptomatic','Atypical angina','No angina','Typical angina')
+
+data$fbs <- as.factor(data$fbs)
+levels(data$fbs) <- c('No','Yes')
+
+data$restecg <- as.factor(data$restecg)
+levels(data$restecg) <- c('Hypertrophy','Normal','Abnormalities')
+
+data$exang <- as.factor(data$exang)
+levels(data$exang) <- c('No','Yes')
+
+data$slope <- as.factor(data$slope)
+levels(data$slope) <- c('Descending','Flat','Ascending')
+
+data$thal <- as.factor(data$thal)
+levels(data$thal) <- c('Fixed defect','Normal flow','Reversible defect')
+
+#data$target <- as.factor(data$target)
+#levels(data$target) <- c('Yes','No')
+
+data$target <- as.character(data$target)
+data$target[which(data$target == 11)] <- 1
+data$target[which(data$target == 'O')] <- 0
+
+data$target <- as.factor(data$target)
+levels(data$target) <- c('Yes','No')
+```
+
+Con sapply vamos a separar los valores numéricos de los factores.
+
+EL target da problemas en los niveles de los factores por que se colaron un 11 y una O mayúscula,
+así que hay que eliminarlas.
+
+## Separating data
+```{r separating}
+#data[,-which(x=X)]
+data <- data[,-1]
+
+type_class <- sapply(data,class)
+#data$oldpeak <- gsub(','',''.', data$oldpeak)
+
+data_num <- data[,type_class %in% c('integer','numeric')]
+data_fac <- data[,type_class %in% c('factor')]
+
+```
+Eliminar la columna de la X que no nos aporta nada y ocupa.
+
+Oldpeak tiene ',' en vez de '.' y por eso lo guarda como caracter.
+
+## Checking
+```{r}
+summary(data_num)
+
+data_num$chol[data_num$chol == 5] <- NA
+data_num$trestbps[data_num$trestbps == 1540] <- 154
+
+mean_trestbps <- mean(data_num$trestbps, na.rm = TRUE)
+data_num$trestbps[is.na(data_num$trestbps)] <- mean_trestbps
+
+mean_thalach <- mean(data_num$thalach, na.rm = TRUE)
+data_num$thalach[is.na(data_num$thalach)] <- mean_thalach
+
+mean_ca <- mean(data_num$ca, na.rm = TRUE)
+data_num$ca[is.na(data_num$ca)] <- mean_ca
+
+```
+
+## Plot
+```{r}
+boxplot(data_num)
+
+plot(data_num$trestbps, main = 'Trest', xlab = 'Pacientes', ylab = 'Trest')
+hist(data_num$trestbps, col = 'blue', main = 'Resting blood presure')
+boxplot(data_num$age, main = 'Age')
+hist(data_num$age, col = 4, main = 'Edad de los pacientes',breaks = 20)
+
+shapiro.test(data$age) #no es normal así que transformacion logarítmica
+edad <- log(data$age)
+
+par(mfrow = c(1,2))
+hist(edad)
+boxplot(edad)
+```
+
+
+
+
+
+
+
+
+
+
