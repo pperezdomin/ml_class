@@ -167,6 +167,48 @@ for (i in c(7:12)){
        xlab = colnames(data_num[i-6]))
 }
 ```
+## p_valores sin modelizar
+```{r}
+for (i in c(1:8)){
+  pvalor[i] <- chisq.test(data_fac[i],data_fac[,8])$p.value
+}
+for (i in c(7:12)){
+  pvalor[i+2] <- t.test(data_num[,i]~data_fac[,8])$p.value
+}
+
+tabla <- tibble(c(colnames(data_fac[1:8]),colnames(data_num[7:12])),pvalor)
+```
+
+## Modelos glm
+Familia y datos a utilizar en principio es suficiente: glm(fórmula)
+Odds
+```{r}
+mod <- glm(target~age, data=data,family = binomial(link = 'logit'))
+summary(mod)
+
+## Modelos glm
+
+pvalor2 <- NULL
+names <- NULL
+# df <- data.frame(matrix(NA,byrow = T,ncol=4,nrow = 40))
+for (i in c(1:7)){
+  mod <- glm(data_fac[,8]~data_fac[,i],family = binomial(link = 'logit'))
+  pvalor2 <- c(pvalor2,summary(mod)$coefficients[2:length(summary(mod)$coefficients[,4]),4])
+  names <- c(names,colnames(data_fac[,i]))
+  #df[i,1] <- paste0('mivalor',summary(mod)$coefficients[2:length(summary(mod)$coefficients[,4]),4])
+}
+for (i in c(7:12)){
+  mod <- glm(data_fac[,8]~data_num[,i],family = binomial(link = 'logit'))
+  pvalor2 <- c(pvalor2,summary(mod)$coefficients[2,4])
+}
+##otra opcion
+for (i in c(7:12)){
+  mod <- glm(data_fac[,8]~data_num[,i],family = binomial(link = 'logit'))
+  df[i,2]<- summary(mod)$coefficients[2,4]
+  df[i,1] <- colnames(data_num[i])
+}
+datos_modelo <- tibble(c(sort(pvalor2)))
+```
 
 
 
