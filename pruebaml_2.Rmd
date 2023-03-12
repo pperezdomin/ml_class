@@ -1,0 +1,221 @@
+---
+title: "Prueba Machine Learning I"
+author: "Paulo"
+date: "2023-02-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Github link
+https://github.com/pperezdomin/ml_class.git
+
+## Importación y limpieza de los datos.
+Para la importación de los datos se tomó como separador el conjunto "h_", como decimal el punto y como identificador de NA el caracter "?". Sin embargo la función de lectura para archivos .csv de R sólo permite tomar un caracter como separador, por lo que se introdujo la barra baja en la función y se eliminó la hache sustituyendola por un elemento vacío. Por esto en algunas columnas al importar no distinguió el interrogante como NA, motivo por el que se le introdujo a la función de importación el conjunto "?h" también como na.string.
+
+Algunos de los datos presentaban valores negativos, como tales valores no eran compatibles con la información facilitada sobre el dataset se estimó que el signo negativo era un error tipográfico y se eliminó.
+
+En las columnas numéricas el método de eliminación de los NA fue la sustitución por la media de los valores. En el caso de las predictoras categóricas se sustituiría por la media, pero no es necesario ya que no presenta valores faltantes. Para la variable respuesta las columnas en las que no había datos se eliminaron, al igual que las que presentaban un nivel no recogido en la información del dataset.
+
+Para aquellos datos cuyo valor superaba en órdenes de magnitud al máximo especificado en la información para su respectiva variable, el cero se consideró un error tipográfico, por lo que se obviará el segundo caracter en caso de ser un cero o repetir el propio número dos veces.
+
+Los summary() del dataset permiten obtener un resumen de los datos, que en este caso facilita encontrar datos que no se ajustan a los valores proporcionados en la información, además de los NA presentes en cada variable.
+
+```{r arranging}
+data_train <- read.csv2('pruebaml/Breast_Cancer_train.data',sep='_',header = F,dec='.', na.strings = c("?","?h"))
+data_train[] <- lapply(data_train, gsub, pattern = '"', replacement = "")
+data_train[] <- lapply(data_train, gsub, pattern = "h", replacement = "")
+data_train[] <- lapply(data_train, gsub, pattern = "-", replacement = "")
+
+
+for (i in c(2:12)){
+  data_train[,i] <- as.numeric(data_train[,i])
+}
+
+summary(data_train)
+for (i in c(2:6)){
+  data_train[which(data_train[,i]>10),i] <- data_train[which(data_train[,i]>10),i]/10
+}
+data_train[which(data_train[,8]>10),8] <- 1
+
+summary(data_train)
+data_train[which(data_train[,12]>10),12] <- as.integer(data_train[which(data_train[,12]>10),12]/10)
+data_train <- data_train[-c(which(is.na(data_train[,12])),which(data_train[,12]==3)),]
+for (i in c(3,4,7,9)){
+  data_train[which(is.na(data_train[,i])),i] <- as.integer(mean(data_train[,i], na.rm = T))
+}
+data_train[,11] <- as.factor(data_train[,11])
+levels(data_train[,11]) <- c(1:8)
+
+data_train[,12] <- as.factor(data_train[,12])
+levels(data_train[,12]) <- c('Benign','Malignant')
+
+colnames(data_train) <- c('sample','clump','uniform_size','uniform_shape','mar_ad','se_size',
+                    'bare_n','bland_chrom','norm_nucl','mit','group','target')
+
+```
+
+## Gráficos.
+La representación gráfica de las variables numéricas se ha llevado a cabo a través de boxplots. En cada gráfica se representaron los valores de una de las variables predictoras, separando los datos repecto a su nivel en la variable respuesta. Este tipo de representación resulta de utilidad ya que permite comparar las diferencias de medias y dispersión entre las variables, pero también si esas diferencias existen dentro de una variable respecto a la respuesta.
+
+En este caso se puede observar que de forma generalizada los valores asociados al nivel "Malignant" de la variable respuesta presentan una media y dispersión mayores que aquellos pertenecientes al nivel "Benign", siendo el grosor del tumor y la cantidad de cromatina blanda las únicas variables que presentan cierto grado de dispersión en los tumores benignos. Todas las demás variables están tan concentradas en un valor que los datos que se salen de la media son considerados como outlayers
+
+Los diagramas de barras apilados permiten visualizar dos variables categóricas de forma simultánea, representando los niveles de la predictora en las barras (eje x) y que proporción de esos niveles se relaciona con cada nivel de la variable respuesta en los colores (eje y).
+
+En el gráfico se puede observar que la mayor concentración de datos proviene del grupo uno, y que para esa variable aproximadamente la mitad de los pacientes presentan un tummor maligno y la otra mitad benigno. En el resto de grupos parece haber una presencia mayoritaria de pacientes con tumores benignos, pero para asegurar que esa diferencia fuese significativa habría que referirse a tests estadíticos.
+
+```{r fig.width=9, fig.height= 7}
+names <- c('Sample code number','Clump Thickness','Uniformity of Cell Size',
+           'Uniformity of Cell Shape','Marginal Adhesion','Single Epithelial Cell Size',
+           'Bare Nuclei','Bland Chromatin','Normal Nucleoli','Mitoses','Group','Class')
+par(mfrow = c(3,4))
+
+for (i in c(2:10)){
+  boxplot(data_train[,i]~data_train[,12],
+            col = c('#191970','#1E5631'),main = names[i],
+            ylab = names[i],
+            xlab = "Target")
+}
+barplot(as.matrix(table(data_train[,12],data_train[,11])),col = c('#191970','#1E5631'),
+       legend.text= T, main = names[11],
+       xlab = colnames(data_train[11]),
+       args.legend = list(x = "topright"))
+```
+
+## Contrastes estadísticos
+El test usado en las variables numéricas es el t de Student, que determina si existen diferencias entre los grupos. 
+Para la variable categórica se empleó una Chi-Cuadrado para comprobar su relación con la variable respuesta.
+
+Como el pvalor de todos los estadísticos es menor que 0.05 se puede concluir que existen diferencias significativas en las variables predictoras respecto a la variable respuesta.
+```{r}
+pvalor <- NULL
+for (i in c(2:10)){
+  pvalor[i-1] <- t.test(data_train[,i]~data_train[,12])$p.value
+}
+pvalor[10] <- chisq.test(data_train[,11],data_train[,12])$p.value
+
+pvalores <- data.frame(c(colnames(data_train[2:11])),pvalor)
+pvalores <- pvalores[order(pvalores[,2],decreasing = T),]
+colnames(pvalores)[1] <- 'Variables'
+
+```
+
+## Modelos bivariante
+Se realizó un análisis preliminar para comprobar la significancia del modelado de la variable respuesta frente a cada una de las variables predictoras. Se determinó que todas las variables numéricas modelaban significativamente el resultado, y que seis de los ocho grupos tambien resultaban significativos.
+Se podrían hacer variables dummies para prescindir de los niveles no significativos, sin embargo, debido a que la interacción entre las variables puede otorgar significancia a estos niveles, se mantuvieron todos los niveles dentro de la varibale.
+```{r}
+pvalor_modelo <- NULL
+names_pvalue <- NULL
+for (i in c(2:10)){
+  mod <- glm(data_train[,12]~data_train[,i],family = binomial(link = 'logit'))
+  pvalor_modelo <- c(pvalor_modelo,summary(mod)$coefficients[2,4])
+}
+mod <- glm(data_train[,12]~data_train[,11]-1,family = binomial(link = 'logit'))
+pvalor_modelo <-c(pvalor_modelo,summary(mod)$coefficients[,4])
+for (i in c(2:10)){
+  names_pvalue <- c(names_pvalue,colnames(data_train[i]))
+}
+names_pvalue <- c(names_pvalue,paste0(colnames(data_train[11]),'_',levels(data_train[,11])))
+
+pvalores_modelo <- data.frame(names_pvalue,pvalor_modelo)
+pvalores_modelo <- pvalores_modelo[order(pvalores_modelo[,2],decreasing = T),]
+
+var_no_significativas <- pvalores_modelo[pvalores_modelo$pvalor_modelo>0.2,]$names_pvalue
+```
+
+## Selección variables del modelo
+En un nuevo dataset con las variables predictoras para el modelo se utilizó una función de modelos lineales generalizados y, siguiendo la regresión stepwise, se eliminaron de manera recursviva aquellas variables que no eran significativas, hasta obtener un modelo en el que todas las variables predictoras tienen valores menores que 0.2, valor que se determinó como treshold ya que 0.05 reducía la precisión del modelo.
+```{r}
+fitting <- data_train[,2:12]
+ratio <- 0.5
+cont <- 0
+while (ratio != 1){
+  mod <- glm(target~.-1,data=fitting,family = binomial(link = 'logit'))
+  ajuste_pvalores <- summary(mod)$coefficients[,4]
+  fitting <- fitting[,!names(fitting) %in%
+          c(names(which(summary(mod)$coefficients[,4]>0.2)))]  
+  ratio <- (ncol(fitting)-1)/length(ajuste_pvalores)
+  cont <- cont+1
+  if (cont==20){
+    break
+  }
+}
+summary(mod)$coefficients[,4]
+```
+## Entrenamiento del modelo
+Utilizando la librería caret, la función trainControl permite determinar el método
+de  validación, en este caso cross validation repetida. Este método separa los datos en 
+5 grupos (parámetro particiones), y repite esta validación en subgrupos 
+formados por el 20% del conjunto de datos de entrenamiento 10 veces (parámetro
+repeticiones). La función train ajusta cada modelo y posteriormente calcula los resultados medios de las diez comparaciones llevadas a cabo entre los subgrupos de entrenamiento y test. 
+
+```{r message=FALSE}
+library(caret)
+repeticiones  <- 10
+particiones <- 5
+control_train <- trainControl(method = "repeatedcv", number = repeticiones,
+                              repeats = particiones)
+modelo_entrenado <- train(target~.,data = fitting,method = 'glm',trControl = control_train,na.action=na.exclude)
+```
+Por defecto, en los modelos de clasificación la función train emplea como métrica
+la accuracy. Este estimador determina  la proporción de aciertos estimando la 
+variable respuesta comparada con las observaciones reales. En este caso el modelo
+ha acertado con una tasa de `r modelo_entrenado$results[,2]`.
+```{r echo=FALSE, include=FALSE}
+pdf(file = '/Users/pauloperezdominguez/Documents/R/Machine_Learning/ml_class/accuracy.pdf')
+ggplot(data = modelo_entrenado$resample, aes(x = Accuracy)) +
+      geom_density(alpha = 0.8, fill = "#191970") +
+      geom_vline(xintercept = mean(modelo_entrenado$resample$Accuracy),
+                 linetype = "dashed", colour = '#191970')
+dev.off()
+```
+
+## Importar los datos de prueba
+Previamente ya se importaron y filtraron los datos de entrenamiento con el modelo,
+para comprobar su eficacia es necesario el uso de datos no introducidos durante el desarrollo del modelo.
+
+A estos datos se les aplicó el mismo tratamiento que a los de entrenamiento, con la diferencia de que el separador en este caso era el conjunto de caracteres "\/".
+```{r}
+data_test <- read.csv2('pruebaml/Breast_Cancer_test.data',sep='\\',header = F,dec='.', na.strings = c("?","/?"))
+data_test[] <- lapply(data_test, gsub, pattern = '/', replacement = "")
+for (i in c(2:11)){
+  data_test[,i] <- as.numeric(data_test[,i])
+}
+summary(data_test)
+
+for (i in c(2,3,11)){
+  data_test[which(data_test[,i]>10),i] <- data_test[which(data_test[,i]>10),i]/10
+}
+summary(data_test)
+
+for (i in c(3,4,6:8)){
+  data_test[which(is.na(data_test[,i])),i] <- as.integer(mean(data_test[,i], na.rm = T))
+}
+
+data_test[,11] <- as.factor(data_test[,11])
+levels(data_train[,11]) <- c(1:8)
+
+colnames(data_test) <- c('sample','clump','uniform_size','uniform_shape','mar_ad','se_size',
+                    'bare_n','bland_chrom','norm_nucl','mit','group')
+```
+
+
+## Predicciones
+Utilizando el conjunto de datos de test y el modelo elaborado a partir de los datos de entrenamiento se usa la función predict() para predecir si los pacientes del dataset de prueba tendrán un tumor benigno o maligno con un treshold del 0.5.
+
+Estos datos se guardan en un data frame con el identificador de la muestra y se exportan al csv "resultados_Paulo" siguiendo la notación proporcionada en la información de los datasets.
+```{r}
+predicciones <- predict(modelo_entrenado, newdata = data_test, type = 'raw')
+data_test[,'predicciones'] <- predicciones
+resultados <- data.frame(data_test[,1],predicciones)
+colnames(resultados)[1] <- 'sample_id'
+levels(resultados[,2]) <- c('2','4')
+write.csv(resultados,'resultados_Paulo.csv')
+```
+
+
+
+
+
+
